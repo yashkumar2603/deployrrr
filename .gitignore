@@ -1,0 +1,3 @@
+vercel-deploy-service/.env
+vercel-request-handler/.env
+vercel-upload-service/.env
