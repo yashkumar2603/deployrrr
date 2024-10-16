@@ -9,6 +9,9 @@ const s3 = new S3({
 
 const app = express();
 
+import cors from "cors";
+app.use(cors());
+
 app.get("/*", async (req, res) => {
     // id.100xdevs.com
     const host = req.hostname;
@@ -18,7 +21,7 @@ app.get("/*", async (req, res) => {
 
     const contents = await s3.getObject({
         Bucket: "vercel",
-        Key: `dist/${id}${filePath}`
+        Key: `dist/${id}/${filePath}`
     }).promise();
     
     const type = filePath.endsWith("html") ? "text/html" : filePath.endsWith("css") ? "text/css" : "application/javascript"
