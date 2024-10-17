@@ -12,6 +12,11 @@ app.use((req, res) => {
     const hostname = req.hostname;
     const subdomain = hostname.split('.')[0];
 
+    // Check if the subdomain is 'deployrrr'
+    if (subdomain === 'deployrrr') {
+        return res.send('No reverse proxying for the "deployrrr" subdomain.');
+    }
+
     // Construct the target URL
     const resolvesTo = `${BASE_PATH}/${subdomain}`;
 
@@ -19,6 +24,7 @@ app.use((req, res) => {
     return proxy.web(req, res, { target: resolvesTo, changeOrigin: true });
 });
 
+// Handle proxy requests
 proxy.on('proxyReq', (proxyReq, req, res) => {
     const url = req.url;
     if (url === '/') {
