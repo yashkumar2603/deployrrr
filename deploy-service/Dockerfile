@@ -13,13 +13,8 @@ RUN npm install
 # Copy tsconfig.json to the working directory
 COPY tsconfig.json ./
 
-RUN npm install typescript -g
-
 # Copy the rest of the application code to the working directory
 COPY . .
-
-# Build the TypeScript code
-RUN tsc -b
 
 # Start the application
 CMD ["node", "dist/index.js"]
