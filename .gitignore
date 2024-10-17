@@ -3,3 +3,5 @@ vercel-request-handler/.env
 vercel-upload-service/.env
 request-handler-service/.env
 upload-service/.env
+s3-reverse-proxy/
+reverse-proxy/node_modules/
