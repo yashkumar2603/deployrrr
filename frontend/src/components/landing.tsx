@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import axios from "axios"
 
-const BACKEND_UPLOAD_URL = "http://localhost:3000";
+const BACKEND_UPLOAD_URL = "https://upload-service-hg46.onrender.com";
 
 export function Landing() {
   const [repoUrl, setRepoUrl] = useState("");
@@ -60,11 +60,11 @@ export function Landing() {
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="deployed-url">Deployed URL</Label>
-            <Input id="deployed-url" readOnly type="url" value={`http://${uploadId}.dev.100xdevs.com:3001/index.html`} />
+            <Input id="deployed-url" readOnly type="url" value={`http://${uploadId}.deployrrr.com/index.html`} />
           </div>
           <br />
           <Button className="w-full" variant="outline">
-            <a href={`http://${uploadId}.10kdevs.com/index.html`} target="_blank">
+            <a href={`http://${uploadId}.deployrrr.com/index.html`} target="_blank">
               Visit Website
             </a>
           </Button>
