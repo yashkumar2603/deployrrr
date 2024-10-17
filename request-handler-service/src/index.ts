@@ -30,25 +30,29 @@ app.get("/*", async (req, res) => {
     const id = host.split(".")[0];
     const filePath = req.path;
 
+    // Log the constructed S3 key
+    const s3Key = `dist/${id}${filePath}`;
+    console.log(`Attempting to fetch S3 object with key: ${s3Key}`);
+
     try {
         const contents = await s3.getObject({
             Bucket: "deployerrr-outputs",
-            Key: `dist/${id}${filePath}`
+            Key: s3Key
         }).promise();
 
         const ext = filePath.slice(((filePath.lastIndexOf(".") - 1) >>> 0) + 2);
         const contentType = contentTypeMap[ext] || "application/octet-stream";
 
         res.set("Content-Type", contentType);
-        // Ensure Content-Disposition is not forcing download
         res.set("Content-Disposition", "inline");
 
         res.send(contents.Body);
     } catch (error) {
-        console.error(error);
+        console.error("S3 error:", error);
         res.status(404).send("File not found");
     }
 });
+
 
 const PORT = 3000;
 app.listen(PORT, () => {
