@@ -259,14 +259,14 @@ npm run deploy
 
 ### 6. Configure DNS
 
-In Cloudflare DNS, create proxied records for:
+In Cloudflare DNS, create proxied placeholder records so the Worker routes have hostnames to match:
 
 ```text
-api.deployrrr.example.com  proxied target for Worker route
-*.deployrrr.example.com    proxied target for Worker route
+api.deployrrr.example.com   AAAA  100::       Proxied
+*.deployrrr.example.com     AAAA  100::       Proxied
 ```
 
-If you use Worker routes, the DNS records only need to exist and be orange-cloud proxied. Cloudflare routes the matching requests to the Worker.
+Because these records are orange-cloud proxied and matched by Worker routes, requests are handled by the Worker and do not go to the placeholder address. If you only need `api.deployrrr.example.com` and not wildcard share subdomains, you can use a Worker Custom Domain for `api.deployrrr.example.com`; Cloudflare Custom Domains require exact hostnames and do not support wildcard domains.
 
 ### 7. Configure CLI
 
