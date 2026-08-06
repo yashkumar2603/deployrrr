@@ -1,94 +1,81 @@
 # Deployrrr
 
-Deployrrr is a CLI-first localhost/share workflow:
-
-1. The user's machine builds the project locally.
-2. The CLI uploads the build output to either:
-   - the public Cloudflare R2 bucket behind your Worker, or
-   - the user's own S3/R2 bucket, using credentials that never leave the user's machine.
-3. The Cloudflare Worker request handler serves the shared site from `https://<share-id>.<your-domain>` or from `/<share-id>/` during local testing.
-
-No server-side build worker is required. Build work happens on the CLI only.
-
-## Current Cloudflare target
-
-The Worker config is ready for this R2 bucket:
+Deployrrr is a CLI for sharing a local static web app quickly. The build runs on the user's machine, files are uploaded to S3-compatible object storage, and a lightweight Cloudflare Worker serves the preview URL.
 
 ```text
-bucket: deployrrr-2
-account S3 API endpoint: https://18868704cdbef5dc6099232fd4aa8158.r2.cloudflarestorage.com
+local project -> deployrrr CLI -> Cloudflare Worker -> R2/S3 objects -> preview URL
 ```
 
-The S3 API endpoint includes the account id only. If you use these credentials in custom CLI mode, set:
+## What it does
 
-```text
-endpoint=https://18868704cdbef5dc6099232fd4aa8158.r2.cloudflarestorage.com
-bucket=deployrrr-2
-region=auto
-```
+- Builds locally with your existing command, for example `npm run build` or `pnpm build`.
+- Uploads the output directory, usually `dist`, `build`, or `out`.
+- Supports two storage modes:
+  - `public`: upload to the R2 bucket configured by the Deployrrr Worker.
+  - `custom`: upload directly to your own S3/R2 bucket, then register the public origin URL with the Worker.
+- Serves previews by path during local/dev usage: `https://<worker>/<share-id>/`.
+- Serves previews by wildcard subdomain when DNS is configured: `https://<share-id>.<your-domain>/`.
 
-Do not commit R2 keys. For Worker public mode, Wrangler uses an R2 binding and does not need the R2 S3 access key or secret in the repo.
-
-## Repo layout
+## Repository layout
 
 ```text
 src/cli.ts                   CLI used by end users
 worker/src/index.ts          Cloudflare Worker request handler
 worker/wrangler.toml         Worker + R2 binding config
-request-handler-service/     Old Express handler, kept for non-Cloudflare hosting only
+request-handler-service/     Legacy Express handler for non-Cloudflare hosting
 ```
 
-## CLI usage
+## Use the CLI
 
-Install and build the CLI from this repo:
+### Install from source
 
 ```bash
+git clone https://github.com/yashkumar2603/deployrrr.git
+cd deployrrr
 npm install
 npm run build
 npm link
 ```
 
-Configure once per project:
+Check it:
+
+```bash
+deployrrr --help
+```
+
+### Configure a project
+
+From the project you want to share:
 
 ```bash
 deployrrr configure
 ```
 
-Share the current project through your public Worker/R2 bucket:
+This writes `.deployrrr.json`. Keep it local; it may contain an upload token or bucket credentials and is gitignored.
+
+### Share a project
 
 ```bash
-deployrrr share --mode public --server-url https://api.deployrrr.example.com
+deployrrr share
 ```
 
-If you set `UPLOAD_TOKEN` on the Worker, pass the token:
-
-```bash
-deployrrr share --mode public \
-  --server-url https://api.deployrrr.example.com \
-  --server-token '<same-token>'
-```
-
-Share through a user's own bucket instead:
-
-```bash
-deployrrr share --mode custom --server-url https://api.deployrrr.example.com
-```
-
-Useful flags:
+Useful overrides:
 
 ```bash
 deployrrr share ./my-app --build-command "pnpm build" --dist dist
 deployrrr share --no-build --dist dist --id demo-123
-deployrrr share --mode public --server-url http://localhost:8787
+deployrrr share --mode public --server-url https://your-worker.workers.dev --server-token '<upload-token>'
 ```
 
-The CLI looks for `.deployrrr.json` in the project directory, then `~/.deployrrr.json`. The config file is gitignored.
+## CLI config examples
 
-### `.deployrrr.json` for public Worker/R2 mode
+### Public Worker/R2 mode
+
+Use this when you own or were given access to a Deployrrr Worker.
 
 ```json
 {
-  "serverUrl": "https://api.deployrrr.example.com",
+  "serverUrl": "https://your-worker.workers.dev",
   "serverToken": "<optional-upload-token>",
   "mode": "public",
   "buildCommand": "npm run build",
@@ -96,20 +83,22 @@ The CLI looks for `.deployrrr.json` in the project directory, then `~/.deployrrr
 }
 ```
 
-### `.deployrrr.json` for custom R2 mode
+### Custom Cloudflare R2 mode
+
+Use this when each user uploads to their own R2 bucket. The Worker receives only the share id and public origin URL; the bucket credentials stay on the user's machine.
 
 ```json
 {
-  "serverUrl": "https://api.deployrrr.example.com",
+  "serverUrl": "https://your-worker.workers.dev",
   "serverToken": "<optional-upload-token>",
   "mode": "custom",
   "buildCommand": "npm run build",
   "distDir": "dist",
   "customBucket": {
     "provider": "r2",
-    "bucket": "deployrrr-2",
+    "bucket": "my-preview-bucket",
     "region": "auto",
-    "endpoint": "https://18868704cdbef5dc6099232fd4aa8158.r2.cloudflarestorage.com",
+    "endpoint": "https://<account-id>.r2.cloudflarestorage.com",
     "accessKeyId": "<r2-access-key>",
     "secretAccessKey": "<r2-secret-key>",
     "prefix": "sites",
@@ -119,11 +108,11 @@ The CLI looks for `.deployrrr.json` in the project directory, then `~/.deployrrr
 }
 ```
 
-### `.deployrrr.json` for custom S3 mode
+### Custom AWS S3 mode
 
 ```json
 {
-  "serverUrl": "https://api.deployrrr.example.com",
+  "serverUrl": "https://your-worker.workers.dev",
   "serverToken": "<optional-upload-token>",
   "mode": "custom",
   "buildCommand": "npm run build",
@@ -140,79 +129,11 @@ The CLI looks for `.deployrrr.json` in the project directory, then `~/.deployrrr
 }
 ```
 
-Custom bucket mode requires uploaded objects to be readable by the Worker through `publicUrl`. Credentials stay on the user's CLI; the Worker stores only the share id and public origin URL.
+## Self-host the Worker on Cloudflare
 
-## Worker API
+### 1. Create or choose an R2 bucket
 
-Health check:
-
-```bash
-curl http://localhost:8787/healthz
-```
-
-Create a public-bucket deployment:
-
-```bash
-curl -X POST http://localhost:8787/api/deployments \
-  -H 'content-type: application/json' \
-  -d '{"mode":"public","id":"demo-123","files":[{"path":"index.html","contentType":"text/html","size":12}]}'
-```
-
-Upload a public-bucket file:
-
-```bash
-curl -X PUT http://localhost:8787/api/deployments/demo-123/files/index.html \
-  -H 'content-type: text/html' \
-  --data '<h1>Deployrrr OK</h1>'
-```
-
-Complete the deployment:
-
-```bash
-curl -X POST http://localhost:8787/api/deployments/demo-123/complete
-```
-
-Create a custom-bucket deployment:
-
-```bash
-curl -X POST http://localhost:8787/api/deployments \
-  -H 'content-type: application/json' \
-  -d '{"mode":"custom","id":"demo-123","originBaseUrl":"https://preview-bucket.example.com/sites/demo-123"}'
-```
-
-Serve locally by path:
-
-```bash
-curl http://localhost:8787/demo-123/
-curl http://localhost:8787/demo-123/assets/app.js
-```
-
-Serve in production by wildcard DNS:
-
-```bash
-curl https://demo-123.deployrrr.example.com/
-```
-
-## Cloudflare deployment guide
-
-### 1. Install Cloudflare Worker dependencies
-
-```bash
-cd worker
-npm install
-```
-
-### 2. Log in to Cloudflare
-
-```bash
-npx wrangler login
-```
-
-Make sure this account owns the `deployrrr-2` R2 bucket.
-
-### 3. Configure `worker/wrangler.toml`
-
-Current bucket binding:
+Create an R2 bucket for public-mode uploads. The default local config expects:
 
 ```toml
 [[r2_buckets]]
@@ -221,7 +142,61 @@ bucket_name = "deployrrr-2"
 preview_bucket_name = "deployrrr-2"
 ```
 
-Set your real domain before production deploy:
+Change `bucket_name` in `worker/wrangler.toml` if your bucket has a different name.
+
+### 2. Install Worker dependencies
+
+```bash
+cd worker
+npm install
+```
+
+### 3. Log in to Cloudflare
+
+```bash
+npx wrangler login
+```
+
+Use the Cloudflare account that owns the R2 bucket.
+
+### 4. Add an upload token
+
+Recommended. Without this, anyone who can reach your Worker can upload files.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+npx wrangler secret put UPLOAD_TOKEN
+```
+
+Paste the generated token. Put the same token in your local `.deployrrr.json` as `serverToken`.
+
+For local Worker development, create `worker/.dev.vars`:
+
+```text
+UPLOAD_TOKEN=<same-token>
+```
+
+`worker/.dev.vars` is gitignored.
+
+### 5. Deploy to workers.dev
+
+```bash
+cd worker
+npm run build
+npm run deploy
+```
+
+Wrangler prints a URL like:
+
+```text
+https://deployrrr-handler.<account-subdomain>.workers.dev
+```
+
+Use that as `serverUrl`.
+
+### 6. Optional: use your own domain
+
+Edit `worker/wrangler.toml`:
 
 ```toml
 routes = [
@@ -236,41 +211,21 @@ METADATA_PREFIX = "_deployrrr/sites"
 MAX_FILE_SIZE_BYTES = "104857600"
 ```
 
-If you do not have a domain yet, leave routes commented and deploy to the default `workers.dev` URL. Path-mode serving still works there: `https://<worker>.<account>.workers.dev/<share-id>/`.
+In Cloudflare DNS, create proxied placeholder records:
 
-### 4. Add an upload token secret
-
-Recommended for demos so random users cannot fill your bucket:
-
-```bash
-cd worker
-npx wrangler secret put UPLOAD_TOKEN
+```text
+api.deployrrr.example.com   AAAA  100::   Proxied
+*.deployrrr.example.com     AAAA  100::   Proxied
 ```
 
-Paste any strong random token. Store the same value locally in `.deployrrr.json` as `serverToken`, or pass `--server-token`.
-
-### 5. Deploy Worker
+Then redeploy:
 
 ```bash
 cd worker
-npm run build
 npm run deploy
 ```
 
-### 6. Configure DNS
-
-In Cloudflare DNS, create proxied placeholder records so the Worker routes have hostnames to match:
-
-```text
-api.deployrrr.example.com   AAAA  100::       Proxied
-*.deployrrr.example.com     AAAA  100::       Proxied
-```
-
-Because these records are orange-cloud proxied and matched by Worker routes, requests are handled by the Worker and do not go to the placeholder address. If you only need `api.deployrrr.example.com` and not wildcard share subdomains, you can use a Worker Custom Domain for `api.deployrrr.example.com`; Cloudflare Custom Domains require exact hostnames and do not support wildcard domains.
-
-### 7. Configure CLI
-
-Public mode:
+Now use this CLI config:
 
 ```json
 {
@@ -282,67 +237,124 @@ Public mode:
 }
 ```
 
-Then run:
+## Local development and verification
+
+### Build everything
 
 ```bash
-deployrrr share --mode public
+npm run build
+cd worker
+npm run build
 ```
 
-## Local verification checklist
+### Run Worker locally
 
-Use these before pushing or deploying:
+```bash
+cd worker
+npm run dev
+```
 
-1. Build the CLI:
+### Manual API smoke test
 
-   ```bash
-   npm run build
-   node dist/cli.js --help
-   ```
+```bash
+curl http://localhost:8787/healthz
 
-2. Build the Worker:
+curl -X POST http://localhost:8787/api/deployments \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer <UPLOAD_TOKEN>' \
+  -d '{"mode":"public","id":"demo-123","files":[{"path":"index.html","contentType":"text/html","size":24}]}'
 
-   ```bash
-   cd worker
-   npm run build
-   ```
+curl -X PUT http://localhost:8787/api/deployments/demo-123/files/index.html \
+  -H 'content-type: text/html' \
+  -H 'authorization: Bearer <UPLOAD_TOKEN>' \
+  --data '<h1>Worker local OK</h1>'
 
-3. Run the Worker locally:
+curl -X POST http://localhost:8787/api/deployments/demo-123/complete \
+  -H 'authorization: Bearer <UPLOAD_TOKEN>'
 
-   ```bash
-   cd worker
-   npm run dev
-   ```
+curl http://localhost:8787/demo-123/
+```
 
-4. In another terminal, create and serve a deployment through local R2:
+Expected body:
 
-   ```bash
-   curl -X POST http://localhost:8787/api/deployments \
-     -H 'content-type: application/json' \
-     -d '{"mode":"public","id":"demo-123","files":[{"path":"index.html","contentType":"text/html","size":24}]}'
+```html
+<h1>Worker local OK</h1>
+```
 
-   curl -X PUT http://localhost:8787/api/deployments/demo-123/files/index.html \
-     -H 'content-type: text/html' \
-     --data '<h1>Worker local OK</h1>'
+### CLI smoke test
 
-   curl -X POST http://localhost:8787/api/deployments/demo-123/complete
-   curl http://localhost:8787/demo-123/
-   ```
+```bash
+mkdir -p /tmp/deployrrr-app/dist
+printf '<h1>CLI Worker OK</h1>' > /tmp/deployrrr-app/dist/index.html
 
-   Expected body contains `Worker local OK`.
+node dist/cli.js share /tmp/deployrrr-app \
+  --no-build \
+  --dist dist \
+  --mode public \
+  --server-url http://localhost:8787 \
+  --server-token '<UPLOAD_TOKEN>' \
+  --id cli-worker-demo
 
-5. Verify the CLI against the local Worker:
+curl http://localhost:8787/cli-worker-demo/
+```
 
-   ```bash
-   mkdir -p /tmp/deployrrr-app/dist
-   printf '<h1>CLI Worker OK</h1>' > /tmp/deployrrr-app/dist/index.html
-   node dist/cli.js share /tmp/deployrrr-app --no-build --dist dist --mode public --server-url http://localhost:8787 --id cli-worker-demo
-   curl http://localhost:8787/cli-worker-demo/
-   ```
+## Worker API
 
-   Expected body contains `CLI Worker OK`.
+```text
+GET  /healthz
+POST /api/deployments
+PUT  /api/deployments/:id/files/:path
+POST /api/deployments/:id/complete
+GET  /:id/*
+GET  https://:id.<BASE_DOMAIN>/*
+```
 
-## Notes on the provided R2 keys
+### Create public deployment
 
-The R2 access key and secret are intentionally not committed. They are S3 API credentials, not Wrangler login credentials. Use them only for CLI custom R2 mode if you want to test direct user-bucket uploads.
+```json
+{
+  "mode": "public",
+  "id": "demo-123",
+  "files": [
+    { "path": "index.html", "contentType": "text/html", "size": 24 }
+  ]
+}
+```
 
-For the Worker public bucket path, Cloudflare's R2 binding handles access internally.
+Response:
+
+```json
+{
+  "id": "demo-123",
+  "url": "/demo-123/",
+  "directUpload": true,
+  "maxFileSizeBytes": 104857600
+}
+```
+
+### Create custom-origin deployment
+
+```json
+{
+  "mode": "custom",
+  "id": "demo-123",
+  "originBaseUrl": "https://preview-bucket.example.com/sites/demo-123"
+}
+```
+
+## Security notes
+
+- Do not commit `.deployrrr.json`, `.env`, `worker/.dev.vars`, or bucket credentials.
+- Use `UPLOAD_TOKEN` for any public Worker.
+- Rotate keys if they were pasted into chat, logs, screenshots, or issue trackers.
+- Public mode stores files and metadata in your R2 bucket under `sites/*` and `_deployrrr/sites/*`.
+- Custom mode requires the user's bucket objects to be readable through `publicUrl`.
+
+## Cloudflare free-tier fit
+
+This is designed for demos and low-traffic preview sharing:
+
+- Workers Free has a large daily request allowance for demo traffic.
+- R2 has a free monthly storage/operation allowance.
+- R2 egress is free.
+- Worker direct uploads are limited by Cloudflare request body limits; keep individual files under `MAX_FILE_SIZE_BYTES`.
