@@ -67,12 +67,12 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/api/deployments") {
-        return await createDeployment(request, env, ctx);
+        return await createDeployment(request, env);
       }
 
       const completionMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)\/complete\/?$/);
       if (request.method === "POST" && completionMatch) {
-        return await completeDeployment(request, env, ctx, completionMatch[1]);
+        return await completeDeployment(request, env, completionMatch[1]);
       }
 
       const fileUploadMatch = url.pathname.match(/^\/api\/deployments\/([^/]+)\/files\/(.+)$/);
@@ -91,7 +91,7 @@ export default {
   },
 };
 
-async function createDeployment(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function createDeployment(request: Request, env: Env): Promise<Response> {
   requireWriteAuth(request, env);
 
   const payload = await readJsonBody(request);
@@ -109,7 +109,7 @@ async function createDeployment(request: Request, env: Env, ctx: ExecutionContex
       throw new HttpError(413, `${oversized.path} exceeds the ${maxFileSize} byte upload limit`);
     }
 
-    ctx.waitUntil(saveDeployment(env, { id, mode: "public", createdAt: new Date().toISOString() }));
+    await saveDeployment(env, { id, mode: "public", createdAt: new Date().toISOString() });
     return json({ id, url: publicUrlFor(id, env), directUpload: true, maxFileSizeBytes: maxFileSize }, 201);
   }
 
@@ -153,7 +153,7 @@ async function uploadDeploymentFile(request: Request, env: Env, rawId: string, r
   return json({ ok: true, path: assetPath });
 }
 
-async function completeDeployment(request: Request, env: Env, ctx: ExecutionContext, rawId: string): Promise<Response> {
+async function completeDeployment(request: Request, env: Env, rawId: string): Promise<Response> {
   requireWriteAuth(request, env);
 
   const id = normalizeDeploymentId(rawId);
@@ -166,7 +166,7 @@ async function completeDeployment(request: Request, env: Env, ctx: ExecutionCont
     throw new HttpError(404, "deployment not found");
   }
 
-  ctx.waitUntil(saveDeployment(env, { ...current, completedAt: new Date().toISOString() }));
+  await saveDeployment(env, { ...current, completedAt: new Date().toISOString() });
   return json({ ok: true, id });
 }
 
