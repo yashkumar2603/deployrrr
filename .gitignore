@@ -5,7 +5,12 @@ dist/
 .env
 .env.local
 worker/.dev.vars
+worker/.dev.vars.local
+worker/.env
+worker/.env.local
 worker/.wrangler/
+.wrangler/
+*.log
 
 
 
