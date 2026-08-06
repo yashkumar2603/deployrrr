@@ -1,0 +1,30 @@
+{
+  "name": "deployrrr",
+  "version": "0.1.0",
+  "description": "CLI for building local projects and sharing them through a Deployrrr request handler.",
+  "license": "ISC",
+  "bin": {
+    "deployrrr": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node src/cli.ts",
+    "share": "node dist/cli.js share"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1553.0",
+    "mime-types": "^2.1.35"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "^20.11.16",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

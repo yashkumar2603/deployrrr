@@ -1,4 +1,14 @@
 vercel-deploy-service/.env
+node_modules/
+dist/
+.deployrrr.json
+.env
+.env.local
+worker/.dev.vars
+worker/.wrangler/
+
+
+
 vercel-request-handler/.env
 vercel-upload-service/.env
 request-handler-service/.env

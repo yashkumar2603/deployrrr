@@ -1,0 +1,5 @@
+# Optional. When set, CLI/API writes must send `Authorization: Bearer <token>` or `x-deployrrr-token: <token>`.
+UPLOAD_TOKEN=change-me
+
+# Optional locally. In production set BASE_DOMAIN in wrangler.toml or Cloudflare dashboard.
+BASE_DOMAIN=deployrrr.example.com

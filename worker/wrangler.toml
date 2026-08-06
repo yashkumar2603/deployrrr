@@ -1,0 +1,21 @@
+name = "deployrrr-handler"
+main = "src/index.ts"
+compatibility_date = "2026-08-06"
+
+# Replace these with your zone before `npm run deploy`.
+# routes = [
+#   { pattern = "api.deployrrr.example.com/*", zone_name = "deployrrr.example.com" },
+#   { pattern = "*.deployrrr.example.com/*", zone_name = "deployrrr.example.com" }
+# ]
+
+[[r2_buckets]]
+binding = "PUBLIC_BUCKET"
+bucket_name = "deployrrr-2"
+preview_bucket_name = "deployrrr-2"
+
+[vars]
+# Set this to your real wildcard domain before production deploy.
+BASE_DOMAIN = ""
+PUBLIC_PREFIX = "sites"
+METADATA_PREFIX = "_deployrrr/sites"
+MAX_FILE_SIZE_BYTES = "104857600"
